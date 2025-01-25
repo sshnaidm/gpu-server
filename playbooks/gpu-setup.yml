@@ -1,0 +1,18 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+
+    - name: Create a VM on AWS
+      include_role:
+        name: gpu_vm
+
+- hosts: launched_instances
+  gather_facts: true
+  remote_user: ec2-user
+  tasks:
+
+    - name: Run setup role
+      include_role:
+        name: setup

@@ -1,0 +1,21 @@
+---
+instance_type: g4dn.2xlarge
+instance_name: sshnaidm-gpu
+security_group_name: sshnaidm-sg
+ami_id: ""
+ami_regex: "Deep Learning Base OSS Nvidia Driver GPU AMI*"
+region: us-east-1
+az: us-east-1a
+key_name: sshnaidm-key
+disk_size: 300
+disk_type: gp3
+spot: false
+count: 1
+assign_public_ip: true
+wait: true
+aws_profile: ""
+instance_id: ""
+instance_tags:
+  Name: "{{ instance_name}}"
+  Policy: skip
+  Owner: "sshnaidm"

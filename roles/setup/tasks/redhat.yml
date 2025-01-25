@@ -1,0 +1,67 @@
+# sudo dnf config-manager --enable rhel-9-appstream-rhui-rpms
+# sudo dnf -y install kernel-headers kernel-devel
+# sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+# sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+# sudo dnf -y module install nvidia-driver:latest-dkms
+# sudo dnf -y install cuda-toolkit
+
+
+- become: true
+  block:
+
+    - name: Update system only once
+      dnf:
+        name: '*'
+        state: latest
+        update_cache: true
+      register: yum_update
+      when: update | default(false) | bool
+
+    - name: Restart if kernel headers or kernel devel are installed
+      reboot:
+        reboot_timeout: 600
+        msg: "Rebooting to load new kernel headers and kernel devel"
+      when:
+        - update | default(false) | bool
+        - yum_update is changed
+
+    - name: Add rhel-9-appstream-rhui-rpms
+      community.general.dnf_config_manager:
+        name: rhel-9-appstream-rhui-rpms
+        state: enabled
+
+    - name: Install kernel-headers and kernel-devel
+      dnf:
+        name:
+          - kernel-headers
+          - kernel-devel
+        state: present
+        update_cache: true
+      register: kernel_headers
+
+    - name: Reboot
+      reboot:
+        reboot_timeout: 600
+        msg: "Rebooting to load new kernel headers and kernel devel"
+      when: kernel_headers is changed
+
+    - name: Add epel repository
+      dnf:
+        name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+        state: present
+
+    - name: Add cuda repository
+      get_url:
+        url: https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+        dest: /etc/yum.repos.d/cuda-rhel9.repo
+
+    - name: Install nvidia-driver:latest-dkms
+      dnf:
+        name: '@nvidia-driver:latest-dkms'
+        state: present
+        update_cache: true
+
+    - name: Install cuda-toolkit
+      dnf:
+        name: cuda-toolkit
+        state: present

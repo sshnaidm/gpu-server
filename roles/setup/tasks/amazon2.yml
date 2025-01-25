@@ -1,0 +1,50 @@
+#  Update system
+# sudo yum update -y
+
+# # Install development tools
+# sudo yum groupinstall -y "Development Tools"
+
+# # Install NVIDIA driver and CUDA repositories
+# sudo yum install -y nvidia-driver-latest-dkms
+# sudo yum install -y cuda
+
+# # Install NVIDIA Container Toolkit repository
+# curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | \
+#     sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+
+# write all this in ansible
+# Install NVIDIA driver and CUDA repositories
+- become: true
+  block:
+
+    - name: Update system only once
+      yum:
+        name: '*'
+        state: latest
+        update_cache: true
+      register: yum_update
+      when: update | default(false) | bool
+
+    - name: Restart if kernel headers or kernel devel are installed
+      reboot:
+        reboot_timeout: 600
+        msg: "Rebooting to load new kernel headers and kernel devel"
+      when:
+        - update | default(false) | bool
+        - yum_update is changed
+
+    - name: Install group development tools
+      yum:
+        name: '@Development Tools'
+        state: present
+
+    - name: Install NVIDIA Container Toolkit repository
+      get_url:
+        url: https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
+        dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+
+    - name: Install NVIDIA Container Toolkit
+      yum:
+        name: nvidia-container-toolkit
+        state: present
+        update_cache: true

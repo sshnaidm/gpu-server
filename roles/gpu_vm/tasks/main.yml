@@ -1,0 +1,176 @@
+---
+- name: Validate parameters
+  assert:
+    that:
+      - instance_type != ""
+      - instance_name != ""
+      - region != ""
+      - key_name != ""
+      - aws_profile != ""
+      - ami_id != "" or ami_regex != ""
+
+- include_tasks: delete.yml
+  when: recreate | default(false) | bool
+
+- name: Set image ID
+  set_fact:
+    image: "{{ ami_id }}"
+  when: ami_id != ""
+
+- when: ami_regex != ""
+  block:
+    - name: Find AMI ID in AWS for a regex
+      amazon.aws.ec2_ami_info:
+        profile: "{{ aws_profile }}"
+        region: "{{ region }}"
+        owners: amazon
+        filters:
+          name: '{{ ami_regex }}'
+          state: available
+      register: ami
+
+    - name: Set image ID
+      set_fact:
+        image: "{{ (ami.images | sort(attribute='creation_date') | last)['image_id'] }}"
+
+- name: Get default VPC ID
+  amazon.aws.ec2_vpc_net_info:
+    region: "{{ region }}"
+    profile: "{{ aws_profile }}"
+    filters:
+      isDefault: true
+  register: vpc_info
+
+- name: Get default subnet in the first AZ
+  amazon.aws.ec2_vpc_subnet_info:
+    profile: "{{ aws_profile }}"
+    region: "{{ region }}"
+    filters:
+      vpc-id: "{{ vpc_info.vpcs[0].vpc_id }}"
+      availability-zone: "{{ az }}"
+  register: subnet_info
+
+- name: Create security group
+  amazon.aws.ec2_security_group:
+    profile: "{{ aws_profile }}"
+    name: "{{ security_group_name }}"
+    description: Security group for SSH access
+    vpc_id: "{{ vpc_info.vpcs[0].vpc_id }}"
+    region: "{{ region }}"
+    rules:
+      - proto: tcp
+        ports: 22
+        cidr_ip: 0.0.0.0/0
+        rule_desc: Allow SSH from anywhere
+    rules_egress:
+      - proto: all
+        cidr_ip: 0.0.0.0/0
+  register: security_group
+
+
+- name: Create a Spot instance on AWS
+  when: spot | bool
+  block:
+
+    - name: Discover is we have such a server with tags
+      amazon.aws.ec2_instance_info:
+        profile: "{{ aws_profile }}"
+        region: "{{ region }}"
+        filters:
+          tag:Name: "{{ instance_name }}"
+          instance-state-name: running
+      register: ec2spot
+
+    - name: If we have a server, use it
+      set_fact:
+        ec2s_id: "{{ ec2spot.instances[0].instance_id }}"
+      when: ec2spot.instances | length > 0
+
+    - name: If not, create one
+      shell: >-
+        aws ec2 run-instances
+        --profile {{ aws_profile }}
+        --region {{ region }}
+        --placement "AvailabilityZone={{ az }}"
+        --instance-market-options '{"MarketType":"spot"}'
+        --instance-type {{ instance_type }}
+        --key-name {{ key_name }}
+        --security-group-ids {{ security_group.group_id }}
+        --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":{{ disk_size }},"DeleteOnTermination":true,"VolumeType":"{{ disk_type }}"}}]'
+        --image-id {{ image }}
+        --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value={{ instance_name }}}]'
+        --query 'Instances[0].InstanceId'
+        --output text
+      register: ec2_spot_instance
+      when: ec2spot.instances | length == 0
+
+    - name: Set fact for instance ID
+      set_fact:
+        ec2s_id: "{{ ec2_spot_instance.stdout }}"
+      when: ec2spot.instances | length == 0
+
+# Create a VM on AWS
+- name: Create on-demand VM on AWS
+  amazon.aws.ec2_instance:
+    state: running
+    name: "{{ instance_name }}"
+    profile: "{{ aws_profile }}"
+    key_name: "{{ key_name }}"
+    instance_type: "{{ instance_type }}"
+    image_id: "{{ image }}"
+    region: "{{ region }}"
+    vpc_subnet_id: "{{ subnet_info.subnets[0].subnet_id }}"
+    security_group: "{{ security_group.group_id }}"
+    exact_count: "{{ count }}"
+    network:
+      assign_public_ip: "{{ assign_public_ip }}"
+    volumes:
+      - device_name: /dev/xvda
+        ebs:
+          volume_size: "{{ disk_size }}"
+          volume_type: "{{ disk_type }}"
+          delete_on_termination: true
+    wait: "{{ wait }}"
+    tags: "{{ instance_tags }}"
+  register: ec2
+  when: not spot | bool
+
+- name: Set fact for instance ID if spot
+  set_fact:
+    deployed_instance_ids: "{{ ec2s_id }}"
+  when: spot | bool
+
+- name: Set fact for instance ID if not spot
+  set_fact:
+    deployed_instance_ids: "{{ ec2.instance_ids }}"
+  when: not spot | bool
+
+- name: Wait for instance to be running and status checks complete
+  amazon.aws.ec2_instance_info:
+    instance_ids: "{{ deployed_instance_ids }}"
+    region: "{{ region }}"
+    profile: "{{ aws_profile }}"
+  register: instance_info
+  until:
+    - instance_info.instances[0].state.name == "running"
+    - instance_info.instances[0].state_transition_reason == ""
+  retries: 30
+  delay: 10
+
+- name: Add new instance to host group
+  add_host:
+    hostname: "{{ instance_info.instances[0].public_ip_address }}"
+    groupname: launched_instances
+    ansible_user: ec2-user
+
+- name: Wait for SSH to come up
+  wait_for:
+    host: "{{ instance_info.instances[0].public_ip_address }}"
+    port: 22
+    delay: 10
+    timeout: 320
+    state: started
+
+- name: Pause for 20 seconds
+  pause:
+    seconds: 20

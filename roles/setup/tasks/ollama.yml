@@ -1,0 +1,56 @@
+---
+# install ollama on host with script curl -fsSL https://ollama.com/install.sh | sh
+- name: Get ollama install script
+  get_url:
+    url: https://ollama.com/install.sh
+    dest: /tmp/ollama-install.sh
+
+- name: Run ollama install script
+  command: /bin/sh /tmp/ollama-install.sh
+  args:
+    creates: /usr/local/bin/ollama
+  register: ollama_install
+
+- name: Check ollama install
+  command: /usr/local/bin/ollama
+  register: ollama_check
+  changed_when: false
+
+- name: Ensure ollama service is running
+  service:
+    name: ollama
+    state: started
+    enabled: true
+
+# Run localhost preparations
+- name: Check that the destination is our host
+  shell: |
+    set -o pipefail
+    ps aux | grep 'ssh -f -N -L 11434:localhost:11434' | grep {{ inventory_hostname }} | grep -v grep
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  register: ollama_check_host
+  ignore_errors: true
+
+- name: Run locally SSH tunnel to remote Ollama if no tunnel is running or wrong destination
+  command: ssh -f -N -L 11434:localhost:11434 ec2-user@{{ inventory_hostname }}
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  when: ollama_check_host.stdout == ""
+
+- name: Run locally Ollama command with a simple prompt
+  command: ollama run --verbose smollm:135m "How do Hawaiians say hello?"
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  register: ollama_run
+  failed_when: ollama_run.rc != 0 or ollama_run.stdout | length < 100
+
+- name: Pull required Ollama models
+  command: ollama pull {{ item }}
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  loop: "{{ ollama_models }}"

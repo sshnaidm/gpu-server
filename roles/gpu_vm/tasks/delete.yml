@@ -1,0 +1,16 @@
+- name: Find instance ID
+  amazon.aws.ec2_instance_info:
+    profile: "{{ aws_profile }}"
+    region: "{{ region }}"
+    filters:
+      tag:Name: "{{ instance_name }}"
+      instance-state-name: running
+  register: instances
+
+- name: Delete VM on AWS
+  amazon.aws.ec2_instance:
+    instance_ids: "{{ instances.instances[0].id }}"
+    profile: "{{ aws_profile }}"
+    region: "{{ region }}"
+    state: absent
+  when: instances.instances | length > 0
