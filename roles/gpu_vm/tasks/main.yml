@@ -12,11 +12,6 @@
 - include_tasks: delete.yml
   when: recreate | default(false) | bool
 
-- name: Set image ID
-  set_fact:
-    image: "{{ ami_id }}"
-  when: ami_id != ""
-
 - when: ami_regex != ""
   block:
     - name: Find AMI ID in AWS for a regex
@@ -32,6 +27,22 @@
     - name: Set image ID
       set_fact:
         image: "{{ (ami.images | sort(attribute='creation_date') | last)['image_id'] }}"
+
+- name: Set image ID if specified
+  set_fact:
+    image: "{{ ami_id }}"
+  when: ami_id != ""
+
+- name: Get the root device name from AMI
+  amazon.aws.ec2_ami_info:
+    profile: "{{ aws_profile }}"
+    region: "{{ region }}"
+    image_id: "{{ image }}"
+  register: ami_info
+
+- name: Set root device name
+  set_fact:
+    root_device: "{{ ami_info.images[0].root_device_name }}"
 
 - name: Get default VPC ID
   amazon.aws.ec2_vpc_net_info:
@@ -96,7 +107,7 @@
         --instance-type {{ instance_type }}
         --key-name {{ key_name }}
         --security-group-ids {{ security_group.group_id }}
-        --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":{{ disk_size }},"DeleteOnTermination":true,"VolumeType":"{{ disk_type }}"}}]'
+        --block-device-mappings '[{"DeviceName":"{{ root_device }}","Ebs":{"VolumeSize":{{ disk_size }},"DeleteOnTermination":true,"VolumeType":"{{ disk_type }}"}}]'
         --image-id {{ image }}
         --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value={{ instance_name }}}]'
         --query 'Instances[0].InstanceId'
@@ -125,7 +136,7 @@
     network:
       assign_public_ip: "{{ assign_public_ip }}"
     volumes:
-      - device_name: /dev/xvda
+      - device_name: "{{ root_device }}"
         ebs:
           volume_size: "{{ disk_size }}"
           volume_type: "{{ disk_type }}"
