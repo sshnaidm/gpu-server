@@ -5,7 +5,6 @@
 # sudo dnf -y module install nvidia-driver:latest-dkms
 # sudo dnf -y install cuda-toolkit
 
-
 - become: true
   block:
 
