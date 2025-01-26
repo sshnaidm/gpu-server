@@ -63,3 +63,10 @@
       dnf:
         name: cuda-toolkit
         state: present
+
+    - name: Install newer Python
+      dnf:
+        name:
+          - python3.11
+          - python3.11-pip
+        state: present
