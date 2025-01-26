@@ -17,13 +17,14 @@
       register: yum_update
       when: update | default(false) | bool
 
-    - name: Restart if kernel headers or kernel devel are installed
+    - name: Reboot
       reboot:
         reboot_timeout: 600
-        msg: "Rebooting to load new kernel headers and kernel devel"
+        msg: "Rebooting to load new kernel if installed"
       when:
         - update | default(false) | bool
         - yum_update is changed
+        - "'kernel' in yum_update.stdout"
 
     - name: Add rhel-9-appstream-rhui-rpms
       community.general.dnf_config_manager:
@@ -37,13 +38,11 @@
           - kernel-devel
         state: present
         update_cache: true
-      register: kernel_headers
 
-    - name: Reboot
-      reboot:
-        reboot_timeout: 600
-        msg: "Rebooting to load new kernel headers and kernel devel"
-      when: kernel_headers is changed
+    - name: Install GPG key for EPEL
+      rpm_key:
+        key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9
+        state: present
 
     - name: Add epel repository
       dnf:
