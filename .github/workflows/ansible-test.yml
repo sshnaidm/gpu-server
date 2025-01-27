@@ -19,13 +19,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.changed_files, 'roles/') ||
-        contains(github.event.pull_request.changed_files, 'playbooks/') ||
-        contains(github.event.pull_request.changed_files, '.ansible-lint')
-      )) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/master')
     steps:
       - name: Check out code
         uses: actions/checkout@v4
