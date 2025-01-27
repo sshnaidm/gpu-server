@@ -18,6 +18,7 @@
       amazon.aws.ec2_ami_info:
         profile: "{{ aws_profile }}"
         region: "{{ region }}"
+        endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
         owners: amazon
         filters:
           name: '{{ ami_regex }}'
@@ -38,6 +39,7 @@
     profile: "{{ aws_profile }}"
     region: "{{ region }}"
     image_id: "{{ image }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
   register: ami_info
 
 - name: Set root device name
@@ -48,6 +50,7 @@
   amazon.aws.ec2_vpc_net_info:
     region: "{{ region }}"
     profile: "{{ aws_profile }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     filters:
       isDefault: true
   register: vpc_info
@@ -100,6 +103,7 @@
     - name: If not, create one
       shell: >-
         aws ec2 run-instances
+        --endpoint-url {{ aws_endpoint_url | default('https://ec2.amazonaws.com') }}
         --profile {{ aws_profile }}
         --region {{ region }}
         --placement "AvailabilityZone={{ az }}"
@@ -127,6 +131,7 @@
     state: running
     name: "{{ instance_name }}"
     profile: "{{ aws_profile }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     key_name: "{{ key_name }}"
     instance_type: "{{ instance_type }}"
     image_id: "{{ image }}"
