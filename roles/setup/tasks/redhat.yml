@@ -5,19 +5,18 @@
 # sudo dnf -y module install nvidia-driver:latest-dkms
 # sudo dnf -y install cuda-toolkit
 
-- become: true
-  block:
-
-    - name: Update system only once
-      dnf:
+- name: Execute RedHat setup tasks
+  ansible.builtin.block:
+    - name: Update all packages
+      ansible.builtin.dnf:
         name: '*'
         state: latest
         update_cache: true
       register: yum_update
       when: update | default(false) | bool
 
-    - name: Reboot
-      reboot:
+    - name: Reboot system after kernel updates
+      ansible.builtin.reboot:
         reboot_timeout: 600
         msg: "Rebooting to load new kernel if installed"
       when:
@@ -31,7 +30,7 @@
         state: enabled
 
     - name: Install kernel-headers and kernel-devel
-      dnf:
+      ansible.builtin.dnf:
         name:
           - kernel-headers
           - kernel-devel
@@ -39,33 +38,33 @@
         update_cache: true
 
     - name: Install GPG key for EPEL
-      rpm_key:
+      ansible.builtin.rpm_key:
         key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9
         state: present
 
     - name: Add epel repository
-      dnf:
+      ansible.builtin.dnf:
         name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
         state: present
 
     - name: Add cuda repository
-      get_url:
+      ansible.builtin.get_url:
         url: https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
         dest: /etc/yum.repos.d/cuda-rhel9.repo
 
     - name: Install nvidia-driver:latest-dkms
-      dnf:
+      ansible.builtin.dnf:
         name: '@nvidia-driver:latest-dkms'
         state: present
         update_cache: true
 
     - name: Install cuda-toolkit
-      dnf:
+      ansible.builtin.dnf:
         name: cuda-toolkit
         state: present
 
     - name: Install newer Python
-      dnf:
+      ansible.builtin.dnf:
         name:
           - python3.11
           - python3.11-pip

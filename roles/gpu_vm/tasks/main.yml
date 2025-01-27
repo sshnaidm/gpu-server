@@ -9,10 +9,12 @@
       - aws_profile != ""
       - ami_id != "" or ami_regex != ""
 
-- ansible.builtin.include_tasks: delete.yml
+- name: Delete existing instance
+  ansible.builtin.include_tasks: delete.yml
   when: recreate | default(false) | bool
 
-- when: ami_regex != ""
+- name: Find AMI ID in AWS for a regex
+  when: ami_regex != ""
   block:
     - name: Find AMI ID in AWS for a regex
       amazon.aws.ec2_ami_info:
@@ -119,6 +121,7 @@
       register: ec2_spot_instance
       when: ec2spot.instances | length == 0
       failed_when: ec2_spot_instance.rc != 0 or ec2_spot_instance.stdout == ''
+      changed_when: ec2_spot_instance.stdout != ''
 
     - name: Set fact for instance ID
       ansible.builtin.set_fact:
