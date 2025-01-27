@@ -158,7 +158,7 @@ jobs:
           export AMI_ID=$(awslocal ec2 describe-images --query 'Images[0].ImageId' --output text)
 
           # Run the playbook
-          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook test-playbook.yml -e "ami_id=${AMI_ID}"
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -vv test-playbook.yml -e "ami_id=${AMI_ID}"
 
       - name: Verify instance creation
         run: |

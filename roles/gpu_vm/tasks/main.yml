@@ -196,7 +196,9 @@
     delay: 10
     timeout: 320
     state: started
+  when: aws_endpoint_url is not defined
 
 - name: Pause for 20 seconds
   ansible.builtin.pause:
     seconds: 20
+  when: aws_endpoint_url is not defined
