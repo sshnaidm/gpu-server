@@ -6,12 +6,13 @@ on:
       - 'roles/gpu_vm/**'
       - '.github/workflows/ansible-test.yml'
       - '.ansible-lint'
+      - 'roles/**'
   pull_request:
     paths:
       - 'roles/gpu_vm/**'
       - '.github/workflows/ansible-test.yml'
       - '.ansible-lint'
-
+      - 'roles/**'
 jobs:
   lint:
     name: Lint
