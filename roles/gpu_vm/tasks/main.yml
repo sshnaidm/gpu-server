@@ -109,11 +109,12 @@
         --security-group-ids {{ security_group.group_id }}
         --block-device-mappings '[{"DeviceName":"{{ root_device }}","Ebs":{"VolumeSize":{{ disk_size }},"DeleteOnTermination":true,"VolumeType":"{{ disk_type }}"}}]'
         --image-id {{ image }}
-        --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value={{ instance_name }}}]'
+        --tag-specifications 'ResourceType=instance,Tags=[{% for key, value in instance_tags.items() %}{Key="{{ key }}",Value="{{ value }}"}{% if not loop.last %},{% endif %}{% endfor %}]'
         --query 'Instances[0].InstanceId'
         --output text
       register: ec2_spot_instance
       when: ec2spot.instances | length == 0
+      failed_when: ec2_spot_instance.rc != 0 or ec2_spot_instance.stdout == ''
 
     - name: Set fact for instance ID
       set_fact:
