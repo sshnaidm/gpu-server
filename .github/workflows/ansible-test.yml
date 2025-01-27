@@ -2,16 +2,19 @@ name: Ansible Role Test
 
 on:
   push:
+    branches:
+      - master
     paths:
-      - 'roles/gpu_vm/**'
+      - 'roles/**'
+      - 'playbooks/**'
       - '.github/workflows/ansible-test.yml'
       - '.ansible-lint'
   pull_request:
     paths:
-      - 'roles/gpu_vm/**'
+      - 'roles/**'
+      - 'playbooks/**'
       - '.github/workflows/ansible-test.yml'
       - '.ansible-lint'
-
 jobs:
   lint:
     name: Lint
@@ -41,6 +44,12 @@ jobs:
   localstack-test:
     name: Localstack Test
     runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.changed_files, 'roles/gpu_vm/') ||
+        contains(github.event.pull_request.changed_files, '.github/workflows/ansible-test.yml')
+      )) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/master')
     services:
       localstack:
         image: localstack/localstack:3.0
