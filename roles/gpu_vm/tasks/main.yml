@@ -63,6 +63,7 @@
   amazon.aws.ec2_vpc_subnet_info:
     profile: "{{ aws_profile }}"
     region: "{{ region }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     filters:
       vpc-id: "{{ vpc_info.vpcs[0].vpc_id }}"
       availability-zone: "{{ az }}"
@@ -70,6 +71,7 @@
 
 - name: Create security group
   amazon.aws.ec2_security_group:
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     profile: "{{ aws_profile }}"
     name: "{{ security_group_name }}"
     description: Security group for SSH access
@@ -92,6 +94,7 @@
 
     - name: Discover is we have such a server with tags
       amazon.aws.ec2_instance_info:
+        endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
         profile: "{{ aws_profile }}"
         region: "{{ region }}"
         filters:
@@ -169,6 +172,7 @@
 
 - name: Wait for instance to be running and status checks complete
   amazon.aws.ec2_instance_info:
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     instance_ids: "{{ deployed_instance_ids }}"
     region: "{{ region }}"
     profile: "{{ aws_profile }}"
