@@ -14,7 +14,9 @@
   when: recreate | default(false) | bool
 
 - name: Find AMI ID in AWS for a regex
-  when: ami_regex != ""
+  when:
+    - ami_regex != ""
+    - ami_id == ""
   block:
     - name: Find AMI ID in AWS for a regex
       amazon.aws.ec2_ami_info:
