@@ -1,6 +1,6 @@
 ---
 - name: Validate parameters
-  assert:
+  ansible.builtin.assert:
     that:
       - instance_type != ""
       - instance_name != ""
@@ -9,7 +9,7 @@
       - aws_profile != ""
       - ami_id != "" or ami_regex != ""
 
-- include_tasks: delete.yml
+- ansible.builtin.include_tasks: delete.yml
   when: recreate | default(false) | bool
 
 - when: ami_regex != ""
@@ -26,11 +26,11 @@
       register: ami
 
     - name: Set image ID
-      set_fact:
+      ansible.builtin.set_fact:
         image: "{{ (ami.images | sort(attribute='creation_date') | last)['image_id'] }}"
 
 - name: Set image ID if specified
-  set_fact:
+  ansible.builtin.set_fact:
     image: "{{ ami_id }}"
   when: ami_id != ""
 
@@ -43,7 +43,7 @@
   register: ami_info
 
 - name: Set root device name
-  set_fact:
+  ansible.builtin.set_fact:
     root_device: "{{ ami_info.images[0].root_device_name }}"
 
 - name: Get default VPC ID
@@ -96,12 +96,12 @@
       register: ec2spot
 
     - name: If we have a server, use it
-      set_fact:
+      ansible.builtin.set_fact:
         ec2s_id: "{{ ec2spot.instances[0].instance_id }}"
       when: ec2spot.instances | length > 0
 
     - name: If not, create one
-      shell: >-
+      ansible.builtin.shell: >-
         aws ec2 run-instances
         --endpoint-url {{ aws_endpoint_url | default('https://ec2.amazonaws.com') }}
         --profile {{ aws_profile }}
@@ -121,7 +121,7 @@
       failed_when: ec2_spot_instance.rc != 0 or ec2_spot_instance.stdout == ''
 
     - name: Set fact for instance ID
-      set_fact:
+      ansible.builtin.set_fact:
         ec2s_id: "{{ ec2_spot_instance.stdout }}"
       when: ec2spot.instances | length == 0
 
@@ -153,12 +153,12 @@
   when: not spot | bool
 
 - name: Set fact for instance ID if spot
-  set_fact:
+  ansible.builtin.set_fact:
     deployed_instance_ids: "{{ ec2s_id }}"
   when: spot | bool
 
 - name: Set fact for instance ID if not spot
-  set_fact:
+  ansible.builtin.set_fact:
     deployed_instance_ids: "{{ ec2.instance_ids }}"
   when: not spot | bool
 
@@ -175,13 +175,13 @@
   delay: 10
 
 - name: Add new instance to host group
-  add_host:
+  ansible.builtin.add_host:
     hostname: "{{ instance_info.instances[0].public_ip_address }}"
     groupname: launched_instances
     ansible_user: ec2-user
 
 - name: Wait for SSH to come up
-  wait_for:
+  ansible.builtin.wait_for:
     host: "{{ instance_info.instances[0].public_ip_address }}"
     port: 22
     delay: 10
@@ -189,5 +189,5 @@
     state: started
 
 - name: Pause for 20 seconds
-  pause:
+  ansible.builtin.pause:
     seconds: 20

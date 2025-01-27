@@ -1,0 +1,20 @@
+---
+# Exclude line length and role var prefix rules
+skip_list:
+  - 'yaml[line-length]'  # Line too long
+  - 'var-naming'         # Variables should be prefixed by role name
+
+# Optional: Add other customizations
+warn_list:  # or 'skip_list' to silence them completely
+  - 'experimental'  # Experimental features
+  - 'no-handler'    # Tasks that run when changed should likely be handlers
+
+# Use more readable format for rule codes
+use_default_rules: true
+parseable: true
+
+# Paths to exclude from linting
+exclude_paths:
+  - .cache/    # Exclude cache directory
+  - .github/   # Exclude GitHub workflows if needed
+  - molecule/  # Exclude molecule test files if needed 
