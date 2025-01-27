@@ -1,8 +1,8 @@
 ---
 # install ollama on host with script curl -fsSL https://ollama.com/install.sh | sh
 - name: Get ollama install script
-  get_url:
-    ansible.builtin.url: https://ollama.com/install.sh
+  ansible.builtin.get_url:
+    url: https://ollama.com/install.sh
     dest: /tmp/ollama-install.sh
 
 - name: Run ollama install script

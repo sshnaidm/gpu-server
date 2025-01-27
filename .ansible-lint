@@ -5,11 +5,13 @@ skip_list:
   - 'var-naming'         # Variables should be prefixed by role name
   - 'no-changed-when'    # Changed when should be used
   - 'risky-file-permissions'  # File permissions should be set explicitly
+  - 'name[playbooks]'  # Playbooks should not be named like tasks
 
 # Optional: Add other customizations
 warn_list:  # or 'skip_list' to silence them completely
   - 'experimental'  # Experimental features
   - 'no-handler'    # Tasks that run when changed should likely be handlers
+  - 'fqcn'          # Use fully qualified collection names
 
 # Use more readable format for rule codes
 use_default_rules: true
