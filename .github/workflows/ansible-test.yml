@@ -88,20 +88,35 @@ jobs:
           sleep 10
           
           # Create a test VPC
-          awslocal ec2 create-vpc --cidr-block 172.31.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=default}]'
+          VPC_ID=$(awslocal ec2 create-vpc --cidr-block 172.31.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=default}]' --query 'Vpc.VpcId' --output text || \
+                   awslocal ec2 describe-vpcs --filters "Name=tag:Name,Values=default" --query 'Vpcs[0].VpcId' --output text)
+          echo "Using VPC: $VPC_ID"
           
-          # Create a test subnet
-          awslocal ec2 create-subnet --vpc-id $(awslocal ec2 describe-vpcs --query 'Vpcs[0].VpcId' --output text) --cidr-block 172.31.1.0/24
+          # Create a test subnet (with different CIDR)
+          SUBNET_ID=$(awslocal ec2 create-subnet \
+            --vpc-id "$VPC_ID" \
+            --cidr-block 172.31.32.0/20 \
+            --query 'Subnet.SubnetId' \
+            --output text || \
+            awslocal ec2 describe-subnets \
+              --filters "Name=vpc-id,Values=$VPC_ID" \
+              --query 'Subnets[0].SubnetId' \
+              --output text)
+          echo "Using Subnet: $SUBNET_ID"
           
-          # Create a test key pair
+          # Create a test key pair (delete if exists)
+          awslocal ec2 delete-key-pair --key-name test-key || true
           awslocal ec2 create-key-pair --key-name test-key
           
           # Create a test AMI
-          awslocal ec2 register-image \
+          AMI_ID=$(awslocal ec2 register-image \
             --name "test-ami" \
             --root-device-name "/dev/xvda" \
             --block-device-mappings "[{\"DeviceName\": \"/dev/xvda\",\"Ebs\":{\"VolumeSize\":8}}]" \
-            --architecture x86_64
+            --architecture x86_64 \
+            --query 'ImageId' \
+            --output text)
+          echo "Created AMI: $AMI_ID"
 
       - name: Run Ansible playbook with Localstack
         run: |
@@ -129,9 +144,6 @@ jobs:
                   # Localstack specific settings
                   aws_endpoint_url: "http://localhost:4566"
           EOF
-          
-          # Get the AMI ID we just created
-          export AMI_ID=$(awslocal ec2 describe-images --query 'Images[0].ImageId' --output text)
           
           # Run the playbook
           ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook test-playbook.yml -e "ami_id=${AMI_ID}"
