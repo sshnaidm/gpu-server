@@ -5,7 +5,7 @@
   tasks:
 
     - name: Create a VM on AWS
-      include_role:
+      ansible.builtin.include_role:
         name: gpu_vm
 
 - hosts: launched_instances
@@ -14,5 +14,5 @@
   tasks:
 
     - name: Run setup role
-      include_role:
+      ansible.builtin.include_role:
         name: setup

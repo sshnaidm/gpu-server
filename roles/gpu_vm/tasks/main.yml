@@ -1,6 +1,6 @@
 ---
 - name: Validate parameters
-  assert:
+  ansible.builtin.assert:
     that:
       - instance_type != ""
       - instance_name != ""
@@ -9,15 +9,20 @@
       - aws_profile != ""
       - ami_id != "" or ami_regex != ""
 
-- include_tasks: delete.yml
+- name: Delete existing instance
+  ansible.builtin.include_tasks: delete.yml
   when: recreate | default(false) | bool
 
-- when: ami_regex != ""
+- name: Find AMI ID in AWS for a regex
+  when:
+    - ami_regex != ""
+    - ami_id == ""
   block:
     - name: Find AMI ID in AWS for a regex
       amazon.aws.ec2_ami_info:
         profile: "{{ aws_profile }}"
         region: "{{ region }}"
+        endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
         owners: amazon
         filters:
           name: '{{ ami_regex }}'
@@ -25,11 +30,11 @@
       register: ami
 
     - name: Set image ID
-      set_fact:
+      ansible.builtin.set_fact:
         image: "{{ (ami.images | sort(attribute='creation_date') | last)['image_id'] }}"
 
 - name: Set image ID if specified
-  set_fact:
+  ansible.builtin.set_fact:
     image: "{{ ami_id }}"
   when: ami_id != ""
 
@@ -38,16 +43,18 @@
     profile: "{{ aws_profile }}"
     region: "{{ region }}"
     image_id: "{{ image }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
   register: ami_info
 
 - name: Set root device name
-  set_fact:
+  ansible.builtin.set_fact:
     root_device: "{{ ami_info.images[0].root_device_name }}"
 
 - name: Get default VPC ID
   amazon.aws.ec2_vpc_net_info:
     region: "{{ region }}"
     profile: "{{ aws_profile }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     filters:
       isDefault: true
   register: vpc_info
@@ -56,6 +63,7 @@
   amazon.aws.ec2_vpc_subnet_info:
     profile: "{{ aws_profile }}"
     region: "{{ region }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     filters:
       vpc-id: "{{ vpc_info.vpcs[0].vpc_id }}"
       availability-zone: "{{ az }}"
@@ -63,6 +71,7 @@
 
 - name: Create security group
   amazon.aws.ec2_security_group:
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     profile: "{{ aws_profile }}"
     name: "{{ security_group_name }}"
     description: Security group for SSH access
@@ -85,6 +94,7 @@
 
     - name: Discover is we have such a server with tags
       amazon.aws.ec2_instance_info:
+        endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
         profile: "{{ aws_profile }}"
         region: "{{ region }}"
         filters:
@@ -93,13 +103,14 @@
       register: ec2spot
 
     - name: If we have a server, use it
-      set_fact:
+      ansible.builtin.set_fact:
         ec2s_id: "{{ ec2spot.instances[0].instance_id }}"
       when: ec2spot.instances | length > 0
 
     - name: If not, create one
-      shell: >-
+      ansible.builtin.shell: >-
         aws ec2 run-instances
+        --endpoint-url {{ aws_endpoint_url | default('https://ec2.amazonaws.com') }}
         --profile {{ aws_profile }}
         --region {{ region }}
         --placement "AvailabilityZone={{ az }}"
@@ -115,9 +126,10 @@
       register: ec2_spot_instance
       when: ec2spot.instances | length == 0
       failed_when: ec2_spot_instance.rc != 0 or ec2_spot_instance.stdout == ''
+      changed_when: ec2_spot_instance.stdout != ''
 
     - name: Set fact for instance ID
-      set_fact:
+      ansible.builtin.set_fact:
         ec2s_id: "{{ ec2_spot_instance.stdout }}"
       when: ec2spot.instances | length == 0
 
@@ -127,6 +139,7 @@
     state: running
     name: "{{ instance_name }}"
     profile: "{{ aws_profile }}"
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     key_name: "{{ key_name }}"
     instance_type: "{{ instance_type }}"
     image_id: "{{ image }}"
@@ -148,17 +161,18 @@
   when: not spot | bool
 
 - name: Set fact for instance ID if spot
-  set_fact:
+  ansible.builtin.set_fact:
     deployed_instance_ids: "{{ ec2s_id }}"
   when: spot | bool
 
 - name: Set fact for instance ID if not spot
-  set_fact:
+  ansible.builtin.set_fact:
     deployed_instance_ids: "{{ ec2.instance_ids }}"
   when: not spot | bool
 
 - name: Wait for instance to be running and status checks complete
   amazon.aws.ec2_instance_info:
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
     instance_ids: "{{ deployed_instance_ids }}"
     region: "{{ region }}"
     profile: "{{ aws_profile }}"
@@ -170,19 +184,21 @@
   delay: 10
 
 - name: Add new instance to host group
-  add_host:
+  ansible.builtin.add_host:
     hostname: "{{ instance_info.instances[0].public_ip_address }}"
     groupname: launched_instances
     ansible_user: ec2-user
 
 - name: Wait for SSH to come up
-  wait_for:
+  ansible.builtin.wait_for:
     host: "{{ instance_info.instances[0].public_ip_address }}"
     port: 22
     delay: 10
     timeout: 320
     state: started
+  when: aws_endpoint_url is not defined
 
 - name: Pause for 20 seconds
-  pause:
+  ansible.builtin.pause:
     seconds: 20
+  when: aws_endpoint_url is not defined

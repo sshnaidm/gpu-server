@@ -12,37 +12,38 @@
 # curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | \
 #     sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
 
-- become: true
-  block:
+- name: Execute system setup tasks
+  become: true
+  ansible.builtin.block:
 
-    - name: Update system only once
-      yum:
+    - name: Update all packages
+      ansible.builtin.yum:
         name: '*'
         state: latest
         update_cache: true
       register: yum_update
       when: update | default(false) | bool
 
-    - name: Restart if kernel headers or kernel devel are installed
-      reboot:
+    - name: Reboot system after kernel updates
+      ansible.builtin.reboot:
         reboot_timeout: 600
         msg: "Rebooting to load new kernel headers and kernel devel"
       when:
         - update | default(false) | bool
         - yum_update is changed
 
-    - name: Install group development tools
-      yum:
+    - name: Install Development Tools package group
+      ansible.builtin.yum:
         name: '@Development Tools'
         state: present
 
-    - name: Install NVIDIA Container Toolkit repository
-      get_url:
+    - name: Download NVIDIA Container Toolkit repository configuration
+      ansible.builtin.get_url:
         url: https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
         dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
 
-    - name: Install NVIDIA Container Toolkit
-      yum:
+    - name: Install NVIDIA Container Toolkit package
+      ansible.builtin.yum:
         name: nvidia-container-toolkit
         state: present
         update_cache: true

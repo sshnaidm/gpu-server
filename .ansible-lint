@@ -1,0 +1,25 @@
+---
+# Exclude line length and role var prefix rules
+skip_list:
+  - 'yaml[line-length]'  # Line too long
+  - 'var-naming'         # Variables should be prefixed by role name
+  - 'no-changed-when'    # Changed when should be used
+  - 'risky-file-permissions'  # File permissions should be set explicitly
+
+# Optional: Add other customizations
+warn_list:  # or 'skip_list' to silence them completely
+  - 'experimental'  # Experimental features
+  - 'no-handler'    # Tasks that run when changed should likely be handlers
+  - 'fqcn'          # Use fully qualified collection names
+  - 'name[play]'  # Playbooks should not be named like tasks
+
+# Use more readable format for rule codes
+use_default_rules: true
+parseable: true
+
+# Paths to exclude from linting
+exclude_paths:
+  - .cache/    # Exclude cache directory
+  - .github/   # Exclude GitHub workflows if needed
+  - molecule/  # Exclude molecule test files if needed
+  - .github/workflows/ansible-test.yml  # Exclude GitHub workflows if needed

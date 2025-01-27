@@ -1,0 +1,172 @@
+name: Ansible Role Test
+
+on:
+  push:
+    paths:
+      - 'roles/gpu_vm/**'
+      - '.github/workflows/ansible-test.yml'
+      - '.ansible-lint'
+  pull_request:
+    paths:
+      - 'roles/gpu_vm/**'
+      - '.github/workflows/ansible-test.yml'
+      - '.ansible-lint'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-lint>=6.22.1" yamllint ansible-core
+
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install amazon.aws
+
+      - name: Run ansible-lint
+        run: |
+          ansible-lint -v
+
+  localstack-test:
+    name: Localstack Test
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:3.0
+        env:
+          SERVICES: ec2,iam,sts
+          DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          DOCKER_HOST: unix:///var/run/docker.sock
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible boto3 awscli-local localstack
+
+      - name: Configure AWS credentials for Localstack
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]
+          aws_access_key_id = test
+          aws_secret_access_key = test
+          region = us-east-1" > ~/.aws/credentials
+          echo "[default]
+          region = us-east-1
+          output = json" > ~/.aws/config
+
+          # Also set environment variables
+          export AWS_ACCESS_KEY_ID=test
+          export AWS_SECRET_ACCESS_KEY=test
+          export AWS_DEFAULT_REGION=us-east-1
+
+      - name: Initialize Localstack resources
+        run: |
+          # Wait for Localstack to be ready
+          sleep 10
+
+          # Create a test VPC
+          VPC_ID=$(awslocal ec2 create-vpc --cidr-block 172.31.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=default}]' --query 'Vpc.VpcId' --output text || \
+                   awslocal ec2 describe-vpcs --filters "Name=tag:Name,Values=default" --query 'Vpcs[0].VpcId' --output text)
+          echo "Using VPC: $VPC_ID"
+
+          # Create a test subnet (with different CIDR)
+          SUBNET_ID=$(awslocal ec2 create-subnet \
+            --vpc-id "$VPC_ID" \
+            --cidr-block 172.31.32.0/20 \
+            --query 'Subnet.SubnetId' \
+            --output text || \
+            awslocal ec2 describe-subnets \
+              --filters "Name=vpc-id,Values=$VPC_ID" \
+              --query 'Subnets[0].SubnetId' \
+              --output text)
+          echo "Using Subnet: $SUBNET_ID"
+
+          # Create a test key pair (delete if exists)
+          awslocal ec2 delete-key-pair --key-name test-key || true
+          awslocal ec2 create-key-pair --key-name test-key
+
+          # Create a test AMI
+          AMI_ID=$(awslocal ec2 register-image \
+            --name "test-ami" \
+            --root-device-name "/dev/xvda" \
+            --block-device-mappings "[{\"DeviceName\": \"/dev/xvda\",\"Ebs\":{\"VolumeSize\":8}}]" \
+            --architecture x86_64 \
+            --query 'ImageId' \
+            --output text)
+          echo "Created AMI: $AMI_ID"
+
+      - name: Run Ansible playbook with Localstack
+        run: |
+          cat > test-playbook.yml << 'EOF'
+          ---
+          - hosts: localhost
+            connection: local
+            gather_facts: false
+            roles:
+              - role: gpu_vm
+                vars:
+                  instance_type: "g4dn.xlarge"
+                  instance_name: "test-instance"
+                  region: "us-east-1"
+                  key_name: "test-key"
+                  aws_profile: "default"
+                  ami_id: "{{ ami_id }}"
+                  spot: false
+                  assign_public_ip: true
+                  disk_size: 100
+                  disk_type: "gp3"
+                  security_group_name: "test-sg"
+                  instance_tags:
+                    Name: "test-instance"
+                    Environment: "test"
+                  # Localstack specific settings
+                  aws_endpoint_url: "http://localhost:4566"
+                  az: "us-east-1a"
+                  count: 1
+                  wait: true
+          EOF
+
+          # Get the AMI ID we just created
+          export AMI_ID=$(awslocal ec2 describe-images --query 'Images[0].ImageId' --output text)
+
+          # Run the playbook
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -vv test-playbook.yml -e "ami_id=${AMI_ID}"
+
+      - name: Verify instance creation
+        run: |
+          # Check if instance exists and is running
+          INSTANCE_ID=$(awslocal ec2 describe-instances --filters "Name=tag:Name,Values=test-instance" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          INSTANCE_STATE=$(awslocal ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].State.Name' --output text)
+
+          if [ "$INSTANCE_STATE" != "running" ]; then
+            echo "Instance is not running. Current state: $INSTANCE_STATE"
+            exit 1
+          fi

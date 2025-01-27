@@ -18,6 +18,6 @@ wait: true
 aws_profile: ""
 instance_id: ""
 instance_tags:
-  Name: "{{ instance_name}}"
+  Name: "{{ instance_name }}"
   Policy: skip
   Owner: "sshnaidm"
