@@ -6,7 +6,8 @@
 # sudo dnf -y install cuda-toolkit
 
 - name: Execute RedHat setup tasks
-  ansible.builtin.block:
+  become: true
+  block:
     - name: Update all packages
       ansible.builtin.dnf:
         name: '*'

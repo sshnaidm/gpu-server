@@ -14,7 +14,7 @@
 
 - name: Execute system setup tasks
   become: true
-  ansible.builtin.block:
+  block:
 
     - name: Update all packages
       ansible.builtin.yum:
