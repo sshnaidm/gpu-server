@@ -86,12 +86,12 @@ jobs:
         run: |
           # Wait for Localstack to be ready
           sleep 10
-          
+
           # Create a test VPC
           VPC_ID=$(awslocal ec2 create-vpc --cidr-block 172.31.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=default}]' --query 'Vpc.VpcId' --output text || \
                    awslocal ec2 describe-vpcs --filters "Name=tag:Name,Values=default" --query 'Vpcs[0].VpcId' --output text)
           echo "Using VPC: $VPC_ID"
-          
+
           # Create a test subnet (with different CIDR)
           SUBNET_ID=$(awslocal ec2 create-subnet \
             --vpc-id "$VPC_ID" \
@@ -103,11 +103,11 @@ jobs:
               --query 'Subnets[0].SubnetId' \
               --output text)
           echo "Using Subnet: $SUBNET_ID"
-          
+
           # Create a test key pair (delete if exists)
           awslocal ec2 delete-key-pair --key-name test-key || true
           awslocal ec2 create-key-pair --key-name test-key
-          
+
           # Create a test AMI
           AMI_ID=$(awslocal ec2 register-image \
             --name "test-ami" \
@@ -123,6 +123,7 @@ jobs:
           cat > test-playbook.yml << 'EOF'
           ---
           - hosts: localhost
+            connection: local
             gather_facts: false
             roles:
               - role: gpu_vm
@@ -143,8 +144,14 @@ jobs:
                     Environment: "test"
                   # Localstack specific settings
                   aws_endpoint_url: "http://localhost:4566"
+                  az: "us-east-1a"
+                  count: 1
+                  wait: true
           EOF
-          
+
+          # Get the AMI ID we just created
+          export AMI_ID=$(awslocal ec2 describe-images --query 'Images[0].ImageId' --output text)
+
           # Run the playbook
           ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook test-playbook.yml -e "ami_id=${AMI_ID}"
 
@@ -153,8 +160,8 @@ jobs:
           # Check if instance exists and is running
           INSTANCE_ID=$(awslocal ec2 describe-instances --filters "Name=tag:Name,Values=test-instance" --query 'Reservations[0].Instances[0].InstanceId' --output text)
           INSTANCE_STATE=$(awslocal ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].State.Name' --output text)
-          
+
           if [ "$INSTANCE_STATE" != "running" ]; then
             echo "Instance is not running. Current state: $INSTANCE_STATE"
             exit 1
-          fi 
+          fi
