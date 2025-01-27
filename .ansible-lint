@@ -12,6 +12,7 @@ warn_list:  # or 'skip_list' to silence them completely
   - 'no-handler'    # Tasks that run when changed should likely be handlers
   - 'fqcn'          # Use fully qualified collection names
   - 'name[play]'  # Playbooks should not be named like tasks
+  - 'package-latest'  # Package should not be latest
 
 # Use more readable format for rule codes
 use_default_rules: true
