@@ -33,13 +33,10 @@
 
 - name: Show start result
   ansible.builtin.debug:
-   msg: "Instance {{ instance_name }} ({{ instance_info.instances[0].instance_id }}) has been started ."
+    msg: "Instance {{ instance_name }} ({{ instance_info.instances[0].instance_id }}) has been started ."
   when:
     - instance_info.instances | length > 0
     - start_result is changed
-
-- debug:
-    var: start_result
 
 - name: Wait for SSH to come up
   ansible.builtin.wait_for:
