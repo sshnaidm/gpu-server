@@ -26,7 +26,7 @@
 - name: Check that the destination is our host
   ansible.builtin.shell: |
     set -o pipefail
-    ps aux | grep 'ssh -f -N -L 11434:localhost:11434' | grep {{ inventory_hostname }} | grep -v grep
+    ps aux | grep 'ssh -f -N -L 11434:localhost:11434' | grep {{ ssh_host }} | grep -v grep
   delegate_to: localhost
   vars:
     ansible_connection: local
@@ -34,7 +34,7 @@
   ignore_errors: true
 
 - name: Run locally SSH tunnel to remote Ollama if no tunnel is running or wrong destination
-  ansible.builtin.command: ssh -f -N -L 11434:localhost:11434 ec2-user@{{ inventory_hostname }}
+  ansible.builtin.command: ssh -f -N -L 11434:localhost:11434 ec2-user@{{ ssh_host }}
   delegate_to: localhost
   vars:
     ansible_connection: local
