@@ -1,0 +1,9 @@
+- hosts: localhost
+  connection: local
+  tasks:
+
+    - name: Stop VM
+      ansible.builtin.include_role:
+        name: gpu_vm
+        tasks_from: stopvm.yml
+
