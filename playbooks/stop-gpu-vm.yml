@@ -6,4 +6,3 @@
       ansible.builtin.include_role:
         name: gpu_vm
         tasks_from: stopvm.yml
-
