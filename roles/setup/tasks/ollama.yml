@@ -41,7 +41,7 @@
   when: ollama_check_host.stdout == ""
 
 - name: Run locally Ollama command with a simple prompt
-  ansible.builtin.command: ollama run --verbose smollm:135m "How do Hawaiians say hello?"
+  ansible.builtin.command: ollama run --verbose smollm:135m "Hello!"
   delegate_to: localhost
   vars:
     ansible_connection: local
