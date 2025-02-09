@@ -1,0 +1,77 @@
+---
+- name: Find instance by name
+  amazon.aws.ec2_instance_info:
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
+    profile: "{{ aws_profile }}"
+    region: "{{ region }}"
+    filters:
+      "tag:Name": "{{ instance_name }}"
+      instance-state-name:
+        - running
+        - pending
+        - stopping
+        - stopped
+  register: instance_info
+
+- name: Notify if instance not found
+  ansible.builtin.debug:
+    msg: "No instance found with name: {{ instance_name }}"
+  when: instance_info.instances | length == 0
+
+- name: Start the instance
+  amazon.aws.ec2_instance:
+    endpoint_url: "{{ aws_endpoint_url | default(omit) }}"
+    instance_ids: "{{ instance_info.instances[0].instance_id }}"
+    profile: "{{ aws_profile }}"
+    region: "{{ region }}"
+    state: running
+    wait: true
+  register: start_result
+  when:
+    - instance_info.instances | length > 0
+    - instance_info.instances[0].state.name != 'running'
+
+- name: Show start result
+  ansible.builtin.debug:
+   msg: "Instance {{ instance_name }} ({{ instance_info.instances[0].instance_id }}) has been started ."
+  when:
+    - instance_info.instances | length > 0
+    - start_result is changed
+
+- debug:
+    var: start_result
+
+- name: Wait for SSH to come up
+  ansible.builtin.wait_for:
+    host: "{{ instance_info.instances[0].public_ip_address }}"
+    port: 22
+    delay: 10
+    timeout: 320
+    state: started
+  when: aws_endpoint_url is not defined
+
+- name: Pause for 10 seconds
+  ansible.builtin.pause:
+    seconds: 10
+  when: aws_endpoint_url is not defined
+
+- name: Set fact for instance IP
+  ansible.builtin.set_fact:
+    ssh_host: "{{ instance_info.instances[0].public_ip_address }}"
+
+# Run localhost preparations
+- name: Check that the destination is our host
+  ansible.builtin.shell: |
+    set -o pipefail
+    ps aux | grep 'ssh -f -N -L 11434:localhost:11434' | grep {{ ssh_host }} | grep -v grep
+  register: ollama_check_host
+  ignore_errors: true
+
+- name: Run locally SSH tunnel to remote Ollama if no tunnel is running or wrong destination
+  ansible.builtin.command: ssh -f -N -L 11434:localhost:11434 ec2-user@{{ ssh_host }}
+  when: ollama_check_host.stdout == ""
+
+- name: Run locally Ollama command with a simple prompt
+  ansible.builtin.command: ollama run --verbose smollm:135m "Hello!"
+  register: ollama_run
+  failed_when: ollama_run.rc != 0 or ollama_run.stdout | length < 100
