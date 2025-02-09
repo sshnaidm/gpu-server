@@ -11,3 +11,5 @@
 
 - name: Include Ollama setup tasks
   ansible.builtin.include_tasks: ollama.yml
+  vars:
+    ssh_host: "{{ inventory_hostname }}"

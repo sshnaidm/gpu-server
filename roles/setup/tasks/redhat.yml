@@ -70,3 +70,12 @@
           - python3.11
           - python3.11-pip
         state: present
+
+    - name: Check Nvidia driver installation
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_check
+
+
+# sudo dnf install @nvidia-driver:latest-dkms
+# sudo dnf install kernel-devel-$(uname -r) gcc make dkms
+# sudo dkms install -m nvidia -v $(rpm -q --qf '%{VERSION}' nvidia-driver)
