@@ -71,10 +71,20 @@
           - python3.11-pip
         state: present
 
+    # restart the system to apply changes
+    - name: Reboot system to apply Nvidia driver changes
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+        msg: "Rebooting to apply Nvidia driver changes"
+
+    - name: Wait for the system to come back online
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: 300
+
     - name: Check Nvidia driver installation
       ansible.builtin.command: nvidia-smi
       register: nvidia_check
-
 
 # sudo dnf install @nvidia-driver:latest-dkms
 # sudo dnf install kernel-devel-$(uname -r) gcc make dkms

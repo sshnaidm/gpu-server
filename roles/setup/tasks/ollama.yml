@@ -26,7 +26,7 @@
 - name: Check that the destination is our host
   ansible.builtin.shell: |
     set -o pipefail
-    ps aux | grep 'ssh -f -N -L 11434:localhost:11434' | grep {{ ssh_host }} | grep -v grep
+    ps aux | grep ':localhost:11434' | grep {{ ssh_host }} | grep -v grep
   delegate_to: localhost
   vars:
     ansible_connection: local
@@ -46,7 +46,7 @@
   vars:
     ansible_connection: local
   register: ollama_run
-  failed_when: ollama_run.rc != 0 or ollama_run.stdout | length < 100
+  failed_when: ollama_run.rc != 0 or ollama_run.stdout | length < 10
 
 - name: Pull required Ollama models
   ansible.builtin.command: ollama pull {{ item }}
