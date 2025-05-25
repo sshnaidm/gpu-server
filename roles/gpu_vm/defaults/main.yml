@@ -1,5 +1,5 @@
 ---
-instance_type: g4dn.2xlarge
+instance_type: g6.xlarge  # g4dn.2xlarge
 instance_name: sshnaidm-gpu
 security_group_name: sshnaidm-sg
 ami_id: ""
