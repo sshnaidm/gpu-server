@@ -1,22 +1,34 @@
 ---
-instance_type: g6.xlarge  # g4dn.2xlarge
-instance_name: sshnaidm-gpu
+# Available instance types for GPU workloads
+instance_type: g6e.2xlarge # Options: g6.xlarge, g6e.2xlarge, g4dn.2xlarge
+instance_name: sshnaidm-gpu-max
 security_group_name: sshnaidm-sg
 ami_id: ""
+
+# Available AMI patterns
 ami_regex: "RHEL-9.*_HVM-*"
-# ami_regex: "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)*"
-# ami_regex: "Deep Learning Base OSS Nvidia Driver GPU AMI (Amazon Linux 2023)*"
+# Alternative AMIs:
+# - Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)
+# - Deep Learning Base OSS Nvidia Driver GPU AMI (Amazon Linux 2023)
+
+# AWS configuration
 region: us-east-1
 az: "{{ region }}a"
 key_name: sshnaidm-key
+
+# Storage configuration
 disk_size: 300
 disk_type: gp3
+
+# Instance configuration
 spot: true
 count: 1
 assign_public_ip: true
 wait: true
 aws_profile: ""
 instance_id: ""
+
+# Instance tags
 instance_tags:
   Name: "{{ instance_name }}"
   Policy: skip
