@@ -107,6 +107,7 @@
         ec2s_id: "{{ ec2spot.instances[0].instance_id }}"
       when: ec2spot.instances | length > 0
 
+    # yamllint disable rule:line-length
     - name: If not, create one
       ansible.builtin.shell: >-
         aws ec2 run-instances
@@ -128,6 +129,7 @@
       failed_when: ec2_spot_instance.rc != 0 or ec2_spot_instance.stdout == ''
       changed_when: ec2_spot_instance.stdout != ''
 
+    # yamllint enable rule:line-length
     - name: Set fact for instance ID
       ansible.builtin.set_fact:
         ec2s_id: "{{ ec2_spot_instance.stdout }}"

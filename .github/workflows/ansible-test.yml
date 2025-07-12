@@ -1,3 +1,4 @@
+---
 name: Ansible Role Test
 
 on:
@@ -96,6 +97,7 @@ jobs:
           export AWS_SECRET_ACCESS_KEY=test
           export AWS_DEFAULT_REGION=us-east-1
 
+      # yamllint disable rule:line-length
       - name: Initialize Localstack resources
         run: |
           # Wait for Localstack to be ready

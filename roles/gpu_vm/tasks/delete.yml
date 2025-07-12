@@ -1,3 +1,4 @@
+---
 - name: Find instance ID
   amazon.aws.ec2_instance_info:
     profile: "{{ aws_profile }}"
