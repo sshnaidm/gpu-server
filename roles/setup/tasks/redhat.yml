@@ -1,7 +1,9 @@
+---
 # sudo dnf config-manager --enable rhel-9-appstream-rhui-rpms
 # sudo dnf -y install kernel-headers kernel-devel
 # sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-# sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+# sudo dnf config-manager --add-repo \
+# https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
 # sudo dnf -y module install nvidia-driver:latest-dkms
 # sudo dnf -y install cuda-toolkit
 

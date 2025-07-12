@@ -1,3 +1,4 @@
+---
 - name: Include RedHat specific tasks
   ansible.builtin.include_tasks: redhat.yml
   when:
